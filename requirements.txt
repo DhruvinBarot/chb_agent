@@ -1,0 +1,5 @@
+# requirements.txt
+fastapi==0.111.0
+starlette==0.37.2          # FastAPI 0.111.x expects this range
+pydantic==2.8.2
+uvicorn[standard]==0.30.5  # includes 'watchfiles' reloader on macOS
