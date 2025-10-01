@@ -1,5 +1,7 @@
 from pydantic import BaseModel, Field, constr
 from typing import Optional, Literal, List, Dict
+from typing import List, Optional
+
 
 MessageText = constr(strip_whitespace=True, min_length=1, max_length=8000)
 
@@ -25,5 +27,6 @@ class ChatNormalized(BaseModel):
     safety: SafetyResult
     normalized_message: str
     tags: List[str] = []
-    context: Optional[List[Dict[str, str]]] = None   # 👈 add this
+    context: Optional[List[Dict[str, str]]] = None   
+    retrieval: Optional[List[dict]] = None   
 

@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+.venv/
+
+# OS
+.DS_Store
+
+# Vector DB
+data/chroma_db/
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+
