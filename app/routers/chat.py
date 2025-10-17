@@ -6,10 +6,10 @@ from app.utils.rate_limit import allow_request
 from datetime import datetime
 from app.memory.short_term import ShortTermMemory
 from app.services.retrieval import retrieve_relevant_chunks
+from app.services.llm_reasoning import generate_answer  # ✅ Step 4 import
 
 router = APIRouter()
 memory = ShortTermMemory(window_size=5)
-
 
 @router.post("/chat", response_model=ChatNormalized)
 def chat(req: ChatRequest):
@@ -21,11 +21,9 @@ def chat(req: ChatRequest):
     safety = basic_safety_check(req.message)
 
     if not safety.allowed:
-        # Store blocked input + response in memory
         memory.add(req.thread_id, "user", req.message)
         memory.add(req.thread_id, "assistant", safety.replacement or "Blocked for safety")
 
-        # Even for blocked messages, attempt retrieval (optional)
         retrieved = retrieve_relevant_chunks(req.message, n_results=3)
 
         return ChatNormalized(
@@ -40,21 +38,21 @@ def chat(req: ChatRequest):
             retrieval=retrieved
         )
 
-    # Intent routing + normalization
+    # Intent classification + normalization
     intent = classify_intent(req.message)
     normalized = normalize_message(req.message, intent.intent)
 
-    # Retrieval
+    # Retrieve relevant paper chunks
     retrieved = retrieve_relevant_chunks(req.message, n_results=3)
 
-    # Add input + placeholder response to memory
+    # 🧠 Step 4: LLM reasoning with retrieved context
+    answer = generate_answer(req.message, retrieved)  # ✅ uses Hugging Face Zephyr
     memory.add(req.thread_id, "user", req.message)
-    assistant_msg = f"Noted intent: {intent.intent}"
-    memory.add(req.thread_id, "assistant", assistant_msg)
+    memory.add(req.thread_id, "assistant", answer)
 
     context = memory.get(req.thread_id)
 
-    # Example logging payload (replace with real logger / Langfuse later)
+    # Logging (optional)
     event = {
         "ts": datetime.utcnow().isoformat() + "Z",
         "thread_id": req.thread_id,
@@ -62,17 +60,20 @@ def chat(req: ChatRequest):
         "safety": safety.model_dump(),
         "normalized_message": normalized,
         "context_window": context,
-        "retrieval": retrieved
+        "retrieval": retrieved,
+        "generated_answer": answer,
     }
     print("[USER_INPUT_EVENT]", event)
 
+    # Final response
     return ChatNormalized(
         thread_id=req.thread_id,
         message=req.message,
         intent=intent,
         safety=safety,
         normalized_message=normalized,
-        tags=["validated", "ready_for_retrieval"],
+        tags=["reasoned_response"],  # ✅ updated tag
         context=context,
-        retrieval=retrieved
+        retrieval=retrieved,
+        generated_answer=answer  # ✅ new field
     )
