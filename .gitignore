@@ -1,22 +1,47 @@
-# Python
+# 🧠 Python virtual environment
+.venv/
+env/
+venv/
+
+# 🧩 Python cache & build files
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
+*.so
+*.egg-info/
+build/
+dist/
 
-# Virtual environment
-.venv/
-
-# OS
+# ⚙️ Environment & API keys
+.env
+*.env
+.env.local
 .DS_Store
 
-# Vector DB
+# 🧠 Project data folders
 data/chroma_db/
+data/papers/
+logs/
+outputs/
+cache/
 
-# Logs
-*.log
-
-# IDE
+# 🧰 VSCode & IDE configs
 .vscode/
 .idea/
+*.iml
 
+# 🧪 Jupyter or testing outputs
+.ipynb_checkpoints/
+*.log
+*.sqlite3
+*.db
+
+# 🚀 Node / Frontend (if ever added)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# 🧷 System files
+Thumbs.db
+.DS_Store
