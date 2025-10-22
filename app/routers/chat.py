@@ -6,7 +6,9 @@ from app.utils.rate_limit import allow_request
 from datetime import datetime
 from app.memory.short_term import ShortTermMemory
 from app.services.retrieval import retrieve_relevant_chunks
-from app.services.llm_reasoning import generate_answer  # ✅ Step 4 import
+from app.services.llm_reasoning import generate_answer  # step 4 import
+from app.memory.long_term import store_interaction, summarize_history # step 5 import
+
 
 router = APIRouter()
 memory = ShortTermMemory(window_size=5)
@@ -65,15 +67,23 @@ def chat(req: ChatRequest):
     }
     print("[USER_INPUT_EVENT]", event)
 
+
+    # 🧩 Generate the final answer
+    final_answer = generate_answer(req.message, retrieved)
+
+    # ✅ Add to both short-term and long-term memory
+    memory.add(req.thread_id, "assistant", final_answer)
+    store_interaction(req.thread_id, req.message, final_answer, retrieved)
+
     # Final response
     return ChatNormalized(
-        thread_id=req.thread_id,
-        message=req.message,
-        intent=intent,
-        safety=safety,
-        normalized_message=normalized,
-        tags=["reasoned_response"],  # ✅ updated tag
-        context=context,
-        retrieval=retrieved,
-        generated_answer=answer  # ✅ new field
-    )
+    thread_id=req.thread_id,
+    message=req.message,
+    intent=intent,
+    safety=safety,
+    normalized_message=normalized,
+    tags=["reasoned_response"],
+    context=summarize_history(req.thread_id),
+    retrieval=retrieved
+)
+
