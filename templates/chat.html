@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Pain & Substance-Use AI Chat</title>
+  <style>
+    body { font-family: sans-serif; margin: 30px; background-color: #f6f6f6; }
+    #chatbox { width: 80%; height: 400px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; background: white; }
+    #input-area { margin-top: 10px; }
+    input[type=text] { width: 70%; padding: 10px; }
+    button { padding: 10px 15px; }
+  </style>
+</head>
+<body>
+  <h2>Pain & Substance-Use Chat</h2>
+  <div id="chatbox"></div>
+
+  <div id="input-area">
+    <input type="text" id="message" placeholder="Type your message..." />
+    <button onclick="sendMessage()">Send</button>
+  </div>
+
+  <script>
+    async function sendMessage() {
+      const msg = document.getElementById('message').value;
+      const response = await fetch('/chat', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({thread_id: 'web_ui', message: msg})
+      });
+      const data = await response.json();
+      const box = document.getElementById('chatbox');
+      box.innerHTML += `<p><b>You:</b> ${msg}</p>`;
+      box.innerHTML += `<p><b>Agent:</b> ${data.normalized_message || '...no response...'}</p>`;
+      document.getElementById('message').value = '';
+      box.scrollTop = box.scrollHeight;
+    }
+  </script>
+</body>
+</html>

@@ -69,7 +69,8 @@ def chat(req: ChatRequest):
 
 
     # 🧩 Generate the final answer
-    final_answer = generate_answer(req.message, retrieved)
+    final_answer, citations = generate_answer(req.message, retrieved)
+
 
     # ✅ Add to both short-term and long-term memory
     memory.add(req.thread_id, "assistant", final_answer)
@@ -84,6 +85,8 @@ def chat(req: ChatRequest):
     normalized_message=normalized,
     tags=["reasoned_response"],
     context=summarize_history(req.thread_id),
-    retrieval=retrieved
+    retrieval=retrieved,
+    citations=citations
+
 )
 

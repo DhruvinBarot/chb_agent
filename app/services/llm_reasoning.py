@@ -8,36 +8,33 @@ client = InferenceClient(
 
 def generate_answer(query: str, retrieved: list):
     """
-    Generate an LLM answer that reasons over retrieved text.
-    If retrieval is empty, provide a general, knowledge-based response.
+    Generate a reasoned answer using retrieved text.
+    Append citation list for traceability.
     """
-    # ✅ Combine retrieved chunks into context
     if retrieved:
         context_text = "\n\n".join(
-            f"[{r.get('source', 'unknown')}] {r.get('content', '')}" for r in retrieved
+            f"Source: {r['source']} (chunk {r['chunk']})\nExcerpt: {r['excerpt']}"
+            for r in retrieved
         )
-        prompt = (
-            f"You are a helpful research assistant. "
-            f"Use the following context from academic papers to answer the question.\n\n"
-            f"Context:\n{context_text}\n\n"
-            f"Question: {query}\n\n"
-            f"Answer concisely and clearly:"
-        )
+        citation_list = [f"{r['source']} (chunk {r['chunk']})" for r in retrieved]
     else:
-        # 🧩 fallback prompt if retrieval returns nothing
-        prompt = (
-            f"You are a research assistant specialized in health behavior. "
-            f"Answer this based on general scientific understanding:\n\n"
-            f"Question: {query}\n\n"
-            f"Answer concisely and clearly:"
-        )
+        context_text = "General domain knowledge on pain, substance use, and behavioral health."
+        citation_list = []
 
-    # Generate a response using the HF model
+    prompt = (
+        f"You are a research assistant summarizing evidence-based findings.\n\n"
+        f"Context:\n{context_text}\n\n"
+        f"Question: {query}\n\n"
+        f"Provide a concise, evidence-grounded answer and end with a section titled 'Citations:' "
+        f"listing the relevant paper names and chunk numbers."
+    )
+
     try:
         response = client.chat_completion(
             messages=[{"role": "user", "content": prompt}],
             max_tokens=400
         )
-        return response.choices[0].message["content"].strip()
+        model_text = response.choices[0].message["content"].strip()
+        return model_text, citation_list
     except Exception as e:
-        return f"⚠️ LLM generation failed: {e}"
+        return f"⚠️ LLM generation failed: {e}", citation_list

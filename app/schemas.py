@@ -29,4 +29,6 @@ class ChatNormalized(BaseModel):
     tags: List[str] = []
     context: Optional[List[Dict[str, str]]] = None   
     retrieval: Optional[List[dict]] = None   
+    citations: list[str] | None = None
+
 
