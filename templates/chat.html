@@ -1,187 +1,164 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Pain & Substance-Use AI Chat</title>
-  <style>
-    :root {
-      --primary: #1976d2;
-      --primary-dark: #0d47a1;
-      --accent: #ff8f00;
-      --bg: #f5f5f5;
-      --text: #222;
-      --muted: #666;
-    }
-    body { font-family: Arial, sans-serif; margin: 32px; background: var(--bg); color: var(--text); }
-    #chatbox { background: #fff; border-radius: 10px; padding: 16px; width: 95%; max-width: 980px; height: 560px; overflow-y: auto; margin-bottom: 12px; border: 1px solid #ddd; }
-    #input-area { display: flex; gap: 10px; width: 95%; max-width: 980px; }
-    input[type=text] { flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #ccc; font-size: 15px; }
-    button { background: var(--primary); color: #fff; border: none; border-radius: 8px; padding: 12px 16px; cursor: pointer; font-size: 15px; }
-    button:hover { background: var(--primary-dark); }
-    .msg { margin: 12px 0; }
-    .user-label { color: #0b5394; font-weight: 700; }
-    .bot-label  { color: #1b5e20; font-weight: 700; }
-    .answer { font-size: 16px; line-height: 1.45; background: #fafafa; border: 1px solid #eee; border-radius: 8px; padding: 12px; }
-    .sources { margin-top: 8px; font-size: 13px; color: #333; }
-    .sources details { background: #fff; border: 1px solid #eee; border-left: 3px solid var(--accent); border-radius: 6px; padding: 8px 10px; }
-    .sources summary { cursor: pointer; font-weight: 600; outline: none; }
-    .cite-item { margin: 6px 0 0 0; }
-    .cite-title { font-weight: 600; }
-    .cite-excerpt { color: var(--muted); }
-    .muted { color: var(--muted); font-style: italic; }
-    .pill { display:inline-block; font-size:12px; padding:2px 6px; border-radius:999px; background:#eef2ff; color:#3949ab; margin-left:6px; }
-    .controls { display:flex; gap:12px; align-items:center; margin: 8px 0 4px 0; }
-    .toggle-link { color: var(--primary); cursor: pointer; text-decoration: underline; font-size: 12px; }
-  </style>
-</head>
-<body>
-  <h2>Pain & Substance-Use Research Chat Assistant</h2>
+{% extends "base.html" %}
+{% block title %}Chat · CHB Assistant{% endblock %}
 
-  <div class="controls">
-    <label><input type="checkbox" id="autoExpand" /> Auto-expand sources</label>
-    <span class="muted">Answers show first. Sources are compact & collapsible.</span>
+{% block content %}
+<section class="row">
+  <div class="col col-8">
+    <div id="chatbox" class="card chatbox"></div>
+
+    <div class="row gap">
+      <input type="text" id="message" placeholder="Ask about pain, substance use, or a specific paper…"/>
+      <button id="sendBtn" onclick="sendMessage()">Send</button>
+    </div>
+
+    <div class="row gap">
+      <label><input type="checkbox" id="autoExpand"/> Auto-expand sources</label>
+      <span class="muted">Answers show first. Sources stay collapsed unless expanded.</span>
+    </div>
   </div>
 
-  <div id="chatbox"></div>
+  <div class="col col-4">
+    <div class="card">
+      <h3>📥 Upload PDF</h3>
+      <input type="file" id="pdfFile" accept="application/pdf"/>
+      <button onclick="uploadPdf()">Upload</button>
+      <div id="uploadResult" class="muted"></div>
+    </div>
 
-  <div id="input-area">
-    <input type="text" id="message" placeholder="Ask about pain, substance use, or a specific paper…" />
-    <button id="sendBtn" onclick="sendMessage()">Send</button>
+    <div class="card">
+      <h3>🗂 Ingestion</h3>
+      <button onclick="reindex()">Reindex PDFs</button>
+      <pre id="reindexOut" class="muted small"></pre>
+    </div>
+
+    <div class="card">
+      <h3>📊 Status</h3>
+      <pre id="statusOut" class="muted small"></pre>
+    </div>
   </div>
+</section>
+{% endblock %}
 
-  <script>
-    // --- Utilities ---
-    function escapeHtml(s) {
-      return String(s)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
-    }
+{% block scripts %}
+<script>
+// basic helpers
+function escapeHtml(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function dedupeSources(arr){const seen=new Set(),out=[];for(const r of (arr||[])){const k=`${r.source||'unknown'}::${r.chunk??-999}`;if(!seen.has(k)){seen.add(k);out.push(r)}}return out;}
+function truncate(s,n=180){if(!s) return ""; s=s.trim(); return s.length>n? s.slice(0,n)+"…": s;}
+function latestAssistant(context){const ctx=Array.isArray(context)?context:[];const last=[...ctx].reverse().find(m=>m.role==="assistant");return last?.message;}
 
-    function dedupeSources(arr) {
-      const seen = new Set();
-      const out = [];
-      for (const r of (arr || [])) {
-        const key = `${r.source || 'unknown'}::${r.chunk ?? -999}`;
-        if (!seen.has(key)) {
-          seen.add(key);
-          out.push(r);
-        }
-      }
-      return out;
-    }
+function renderSources(retrieval){
+  const items = dedupeSources(retrieval);
+  if(!items.length) return "";
+  const count = items.length;
+  const autoExpand = document.getElementById('autoExpand')?.checked;
+  let list = "";
+  for(const r of items){
+    const title = escapeHtml(r.source||"unknown.pdf");
+    const chunk = (r.chunk!==undefined && r.chunk!==null) ? ` (chunk ${r.chunk})`:"";
+    const full  = escapeHtml(r.excerpt||"");
+    const short = truncate(full, 180);
+    const uid   = "exp-"+Math.random().toString(36).slice(2);
+    list += `
+      <div class="cite">
+        <div class="cite-title">• ${title}${chunk}</div>
+        <div class="cite-excerpt" id="${uid}" data-full="${full}" data-short="${short}">${short}</div>
+        ${full.length>short.length? `<span class="link" onclick="toggleExcerpt('${uid}')">show more</span>`:""}
+      </div>`;
+  }
+  return `<div class="sources">
+    <details ${autoExpand?"open":""}>
+      <summary>📚 Sources <span class="pill">${count}</span></summary>
+      ${list}
+    </details>
+  </div>`;
+}
 
-    function truncate(str, n = 220) {
-      if (!str) return "";
-      const s = str.trim();
-      return s.length > n ? s.slice(0, n) + "…" : s;
-    }
+function toggleExcerpt(id){
+  const el = document.getElementById(id);
+  const isShort = el.textContent.endsWith("…") || el.textContent===el.dataset.short;
+  el.textContent = isShort ? el.dataset.full : el.dataset.short;
+  const link = el.nextElementSibling;
+  if(link && link.classList.contains("link")) link.textContent = isShort? "show less":"show more";
+}
 
-    function renderSources(retrieval) {
-      const items = dedupeSources(retrieval);
-      if (!items.length) return "";
-      const count = items.length;
+// chat send
+async function sendMessage(){
+  const input = document.getElementById('message');
+  const msg = input.value.trim();
+  if(!msg) return;
 
-      let listHtml = "";
-      for (const r of items) {
-        const title = escapeHtml(r.source || "unknown.pdf");
-        const chunk = (r.chunk !== undefined && r.chunk !== null) ? ` (chunk ${r.chunk})` : "";
-        const full = escapeHtml(r.excerpt || "");
-        const short = truncate(full, 220);
+  const box = document.getElementById('chatbox');
+  box.innerHTML += `<div class="msg"><span class="user">You:</span> ${escapeHtml(msg)}</div>`;
+  input.value = '';
 
-        // expandable excerpt per item
-        const uid = "exp-" + Math.random().toString(36).slice(2);
-        listHtml += `
-          <div class="cite-item">
-            <span class="cite-title">• ${title}${chunk}</span>
-            <div class="cite-excerpt" id="${uid}" data-full="${full}" data-short="${short}">${short}</div>
-            ${full.length > short.length ? `<span class="toggle-link" onclick="toggleExcerpt('${uid}')">show more</span>` : ""}
-          </div>
-        `;
-      }
+  const loaderId = "loader-"+Date.now();
+  box.innerHTML += `<div id="${loaderId}" class="muted">AI is thinking…</div>`;
+  box.scrollTop = box.scrollHeight;
 
-      const autoExpand = document.getElementById('autoExpand')?.checked;
-
-      return `
-        <div class="sources">
-          <details ${autoExpand ? "open" : ""}>
-            <summary>📚 Sources <span class="pill">${count}</span></summary>
-            ${listHtml}
-          </details>
-        </div>
-      `;
-    }
-
-    function toggleExcerpt(id) {
-      const el = document.getElementById(id);
-      const isShort = el.textContent.endsWith("…") || el.textContent === el.dataset.short;
-      el.textContent = isShort ? el.dataset.full : el.dataset.short;
-      const link = el.nextElementSibling;
-      if (link && link.classList.contains("toggle-link")) {
-        link.textContent = isShort ? "show less" : "show more";
-      }
-    }
-
-    function latestAssistant(context) {
-      const ctx = Array.isArray(context) ? context : [];
-      const last = [...ctx].reverse().find(m => m.role === 'assistant');
-      return last?.message;
-    }
-
-    // --- Chat rendering ---
-    async function sendMessage() {
-      const input = document.getElementById('message');
-      const msg = input.value.trim();
-      if (!msg) return;
-
-      const box = document.getElementById('chatbox');
-      box.innerHTML += `<div class="msg"><span class="user-label">You:</span> ${escapeHtml(msg)}</div>`;
-      input.value = '';
-
-      // loader
-      const loaderId = "loader-" + Date.now();
-      box.innerHTML += `<div id="${loaderId}" class="muted">AI is thinking…</div>`;
-      box.scrollTop = box.scrollHeight;
-
-      try {
-        const res = await fetch('/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ thread_id: 'web_ui', message: msg })
-        });
-        const data = await res.json();
-
-        document.getElementById(loaderId)?.remove();
-
-        const answer =
-          data.generated_answer ||
-          latestAssistant(data.context) ||
-          data.normalized_message ||
-          "⚠️ No answer generated. Check your LLM/API settings.";
-
-        // ANSWER first (bigger), then compact sources
-        const answerHtml = `<div class="answer">${escapeHtml(answer)}</div>`;
-        const sourcesHtml = renderSources(Array.isArray(data.retrieval) ? data.retrieval : []);
-
-        box.innerHTML += `
-          <div class="msg">
-            <span class="bot-label">AI:</span>
-            ${answerHtml}
-            ${sourcesHtml}
-          </div>
-        `;
-      } catch (err) {
-        document.getElementById(loaderId)?.remove();
-        box.innerHTML += `<div class="msg"><span class="bot-label">AI:</span> <span style="color:#b00020;"><b>Error:</b> ${escapeHtml(err.message || String(err))}</span></div>`;
-      }
-
-      box.scrollTop = box.scrollHeight;
-    }
-
-    // Enter to send
-    document.getElementById('message').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') sendMessage();
+  try{
+    const res = await fetch('/chat', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({thread_id:'web_ui', message: msg})
     });
-  </script>
-</body>
-</html>
+    const data = await res.json();
+    document.getElementById(loaderId)?.remove();
+
+    const answer = data.generated_answer || latestAssistant(data.context) || data.normalized_message || "⚠️ No answer generated.";
+    const sources = renderSources(Array.isArray(data.retrieval)? data.retrieval:[]);
+    box.innerHTML += `<div class="msg">
+      <span class="bot">AI:</span>
+      <div class="answer">${escapeHtml(answer)}</div>
+      ${sources}
+    </div>`;
+  }catch(err){
+    document.getElementById(loaderId)?.remove();
+    box.innerHTML += `<div class="msg"><span class="bot">AI:</span> <span class="error"><b>Error:</b> ${escapeHtml(err.message||String(err))}</span></div>`;
+  }
+  box.scrollTop = box.scrollHeight;
+}
+
+// upload PDF
+async function uploadPdf(){
+  const inp = document.getElementById('pdfFile');
+  const out = document.getElementById('uploadResult');
+  if(!inp.files.length){ out.textContent="Choose a PDF first."; return; }
+  const fd = new FormData();
+  fd.append("file", inp.files[0]);
+  out.textContent = "Uploading…";
+  try{
+    const res = await fetch('/upload', {method:'POST', body: fd});
+    const data = await res.json();
+    out.textContent = data.ok ? `Uploaded: ${data.saved_as}` : (data.detail||"Upload failed");
+  }catch(e){ out.textContent = "Upload error: " + e.message; }
+}
+
+// reindex
+async function reindex(){
+  const out = document.getElementById('reindexOut');
+  out.textContent = "Reindexing…";
+  try{
+    const res = await fetch('/admin/reindex', {method:'POST'});
+    const data = await res.json();
+    out.textContent = JSON.stringify(data, null, 2);
+    await refreshStatus();
+  }catch(e){ out.textContent = "Reindex error: " + e.message; }
+}
+
+// status
+async function refreshStatus(){
+  const out = document.getElementById('statusOut');
+  try{
+    const res = await fetch('/status');
+    const data = await res.json();
+    out.textContent = JSON.stringify(data, null, 2);
+  }catch(e){ out.textContent = "Status error: " + e.message; }
+}
+refreshStatus();
+
+// Enter to send
+document.getElementById('message').addEventListener('keydown', (e)=>{ if(e.key==='Enter') sendMessage(); });
+
+</script>
+{% endblock %}

@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>{% block title %}CHB Research Assistant{% endblock %}</title>
+  <link rel="stylesheet" href="/static/app.css"/>
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">Pain & Substance-Use Research Assistant</div>
+    <nav>
+      <a href="/chat-ui">Chat</a>
+      <a href="/docs" target="_blank">API Docs</a>
+    </nav>
+  </header>
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+  <script src="/static/app.js"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

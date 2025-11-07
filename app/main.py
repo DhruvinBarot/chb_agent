@@ -1,32 +1,51 @@
+# app/main.py
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from app.routers import chat
+from fastapi.staticfiles import StaticFiles
 
-#  Create only one FastAPI instance
+# Routers
+from app.routers import chat            # POST /chat
+from app.routers import files, status   # /upload, /admin/reindex, /status
+
+# Single FastAPI app instance
 app = FastAPI(title="Pain & Substance-Use AI Agent")
 
-#  Jinja2 template directory
+# ---- Static & Templates ----
+# Expect these at project root:
+#   templates/chat.html, templates/base.html
+#   static/app.css, static/app.js
+app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-#  Chat UI route
+# ---- UI Routes ----
 @app.get("/chat-ui", response_class=HTMLResponse)
 async def chat_ui(request: Request):
+    """Web UI for interactive chat (answers + sources, upload + reindex)."""
     return templates.TemplateResponse("chat.html", {"request": request})
 
-#  Root route
+# ---- Convenience/help Routes ----
 @app.get("/")
 def home():
+    """Landing info."""
     return {
         "app": "Pain & Substance-Use AI Agent",
         "docs": "/docs",
-        "health": "/health"
+        "health": "/health",
+        "ui": "/chat-ui"
     }
 
-#  Health check
 @app.get("/health")
 def health():
+    """Health check."""
     return {"status": "ok"}
 
-#  Include routers
-app.include_router(chat.router, prefix="")
+@app.get("/chat")
+def chat_help():
+    """Helpful hint if someone hits GET /chat in a browser."""
+    return {"detail": "Use POST /chat with JSON: {'thread_id': 'id', 'message': 'your question'}"}
+
+# ---- Include Routers ----
+app.include_router(chat.router, prefix="")     # your existing chat pipeline
+app.include_router(files.router, prefix="")    # upload & reindex endpoints
+app.include_router(status.router, prefix="")   # status endpoint
