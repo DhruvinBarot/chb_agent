@@ -20,15 +20,25 @@ class SafetyResult(BaseModel):
     reason: Optional[str] = None
     replacement: Optional[str] = None
 
+# class ChatNormalized(BaseModel):
+#     thread_id: str
+#     message: str
+#     intent: IntentResult
+#     safety: SafetyResult
+#     normalized_message: str
+#     tags: List[str] = []
+#     context: Optional[List[Dict[str, str]]] = None   
+#     retrieval: Optional[List[dict]] = None   
+#     citations: list[str] | None = None
+
 class ChatNormalized(BaseModel):
     thread_id: str
     message: str
-    intent: IntentResult
-    safety: SafetyResult
+    intent: dict
+    safety: dict
     normalized_message: str
-    tags: List[str] = []
-    context: Optional[List[Dict[str, str]]] = None   
-    retrieval: Optional[List[dict]] = None   
-    citations: list[str] | None = None
-
-
+    tags: list
+    context: list
+    retrieval: list = []
+    generated_answer: Optional[str] = None      # <- string
+    citations: Optional[List[str]] = None       # <- separate citations

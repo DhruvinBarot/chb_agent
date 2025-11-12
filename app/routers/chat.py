@@ -48,11 +48,16 @@ def chat(req: ChatRequest):
     retrieved = retrieve_relevant_chunks(req.message, n_results=3)
 
     # 🧠 Step 4: LLM reasoning with retrieved context
-    answer = generate_answer(req.message, retrieved)  # ✅ uses Hugging Face Zephyr
+    # ✅ Unpack the tuple properly
+    answer_text, citations = generate_answer(normalized, retrieved, req.thread_id)
+    
     memory.add(req.thread_id, "user", req.message)
-    memory.add(req.thread_id, "assistant", answer)
+    memory.add(req.thread_id, "assistant", answer_text)
 
-    context = memory.get(req.thread_id)
+    # ✅ Store interaction in long-term memory
+    store_interaction(req.thread_id, req.message, answer_text, retrieved)
+
+    context = summarize_history(req.thread_id)
 
     # Logging (optional)
     event = {
@@ -63,30 +68,21 @@ def chat(req: ChatRequest):
         "normalized_message": normalized,
         "context_window": context,
         "retrieval": retrieved,
-        "generated_answer": answer,
+        "generated_answer": answer_text,
+        "citations": citations,
     }
     print("[USER_INPUT_EVENT]", event)
 
-
-    # 🧩 Generate the final answer
-    final_answer, citations = generate_answer(req.message, retrieved)
-
-
-    # ✅ Add to both short-term and long-term memory
-    memory.add(req.thread_id, "assistant", final_answer)
-    store_interaction(req.thread_id, req.message, final_answer, retrieved)
-
     # Final response
     return ChatNormalized(
-    thread_id=req.thread_id,
-    message=req.message,
-    intent=intent,
-    safety=safety,
-    normalized_message=normalized,
-    tags=["reasoned_response"],
-    context=summarize_history(req.thread_id),
-    retrieval=retrieved,
-    citations=citations
-
-)
-
+        thread_id=req.thread_id,
+        message=req.message,
+        intent=intent.model_dump(),     # ✅ dict
+        safety=safety.model_dump(), 
+        normalized_message=normalized,
+        tags=["reasoned_response"],
+        context=context,
+        retrieval=retrieved,
+        generated_answer=answer_text,  # ✅ string only
+        citations=citations              # ✅ separate list
+    )

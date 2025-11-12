@@ -6,20 +6,20 @@ client = InferenceClient(
     token=os.getenv("HUGGINGFACEHUB_API_TOKEN")
 )
 
-def generate_answer(query: str, retrieved: list):
+def generate_answer(query: str, retrieved: list, thread_id: str) -> tuple[str, list[str]]:
     """
     Generate a reasoned answer using retrieved text.
-    Append citation list for traceability.
+    Return (answer_text, citations) where answer_text is a plain string.
     """
     if retrieved:
         context_text = "\n\n".join(
             f"Source: {r['source']} (chunk {r['chunk']})\nExcerpt: {r['excerpt']}"
             for r in retrieved
         )
-        citation_list = [f"{r['source']} (chunk {r['chunk']})" for r in retrieved]
+        citations = [f"{r['source']} (chunk {r['chunk']})" for r in retrieved]
     else:
         context_text = "General domain knowledge on pain, substance use, and behavioral health."
-        citation_list = []
+        citations = []
 
     prompt = (
         f"You are a research assistant summarizing evidence-based findings.\n\n"
@@ -34,7 +34,11 @@ def generate_answer(query: str, retrieved: list):
             messages=[{"role": "user", "content": prompt}],
             max_tokens=400
         )
-        model_text = response.choices[0].message["content"].strip()
-        return model_text, citation_list
+        
+        # Ensure answer_text is a plain string
+        answer_text = response.choices[0].message["content"].strip()
+        
+        return answer_text, citations
     except Exception as e:
-        return f"⚠️ LLM generation failed: {e}", citation_list
+        # Return error message as plain string
+        return f"⚠️ LLM generation failed: {e}", citations

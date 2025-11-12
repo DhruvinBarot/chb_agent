@@ -8,7 +8,7 @@ body { background: #f5f7fb; color: #222; font-family: system-ui, Arial, sans-ser
 .col { padding: 6px; }
 .col-8 { flex: 0 0 66.66%; max-width:66.66%; }
 .col-4 { flex: 0 0 33.33%; max-width:33.33%; }
-.card { background:#fff; border:1px solid #e6e8ef; border-radius:10px; padding:12px; margin-bottom:12px; }
+.card { background:#fff; border:1px solid #a9aaad; border-radius:10px; padding:12px; margin-bottom:12px; }
 .chatbox { height: 70vh; overflow-y:auto; }
 input[type=text] { width:100%; padding:10px; border:1px solid #cdd4e0; border-radius:8px; }
 button { background:#0b3d91; color:#fff; border:none; border-radius:8px; padding:10px 14px; cursor:pointer; }
@@ -26,3 +26,11 @@ button:hover { background:#072b66; }
 .muted { color:#6b7280; font-size:12px; }
 .small { font-size: 12px; }
 .error { color: #b00020; }
+.chatbox { height: 75vh; overflow-y: auto; }    /* taller window */
+.answer {
+  white-space: pre-wrap;        /* keep newlines */
+  overflow-wrap: anywhere;      /* break very long tokens/URLs */
+  word-break: break-word;       /* fallback for older engines */
+  max-height: none;             /* don't cap height */
+  overflow: visible;
+}

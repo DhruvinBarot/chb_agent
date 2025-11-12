@@ -47,6 +47,21 @@ function dedupeSources(arr){const seen=new Set(),out=[];for(const r of (arr||[])
 function truncate(s,n=180){if(!s) return ""; s=s.trim(); return s.length>n? s.slice(0,n)+"…": s;}
 function latestAssistant(context){const ctx=Array.isArray(context)?context:[];const last=[...ctx].reverse().find(m=>m.role==="assistant");return last?.message;}
 
+// ✅ NEW: stringify helper to handle various answer formats
+function stringifyAnswer(ans) {
+  if (ans == null) return "";
+  if (Array.isArray(ans)) {
+    // handle accidental tuple/list: [text, ...]
+    if (typeof ans[0] === "string") return ans[0];
+    return ans.map(x => (typeof x === "string" ? x : JSON.stringify(x))).join("\n");
+  }
+  if (typeof ans === "object") {
+    if (ans.text) return ans.text;          // some LLM clients return {text: "..."}
+    return JSON.stringify(ans);
+  }
+  return String(ans);
+}
+
 function renderSources(retrieval){
   const items = dedupeSources(retrieval);
   if(!items.length) return "";
@@ -105,7 +120,13 @@ async function sendMessage(){
     const data = await res.json();
     document.getElementById(loaderId)?.remove();
 
-    const answer = data.generated_answer || latestAssistant(data.context) || data.normalized_message || "⚠️ No answer generated.";
+    // ✅ UPDATED: Use stringifyAnswer to handle various formats
+    const answer =
+      stringifyAnswer(data.generated_answer) ||
+      latestAssistant(data.context) ||
+      data.normalized_message ||
+      "⚠️ No answer generated.";
+    
     const sources = renderSources(Array.isArray(data.retrieval)? data.retrieval:[]);
     box.innerHTML += `<div class="msg">
       <span class="bot">AI:</span>
