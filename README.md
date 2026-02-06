@@ -1,126 +1,211 @@
-🧠 Pain & Substance-Use AI Agent
+🧠 Pain & Substance-Use Research AI Agent (RAG)
 
-This project is an AI-powered assistant for research in pain, substance use, and health behaviors.
-It ingests academic papers (PDFs), builds semantic embeddings, and allows you to query for relevant passages using natural language.
+A domain-aware Retrieval-Augmented Generation (RAG) system that enables interactive querying of peer-reviewed literature on pain, substance use, and behavioral health.
+The system retrieves evidence from uploaded PDFs, reasons over the content using LLMs, and returns citation-grounded answers through a web-based chat interface.
 
-We are currently at Step 3 of the roadmap: ingestion + retrieval.
+✨ Key Features
 
-📂 Project Structure
-step1_user_input_backend/
-├─ app/                     # FastAPI app
-│  ├─ main.py
-│  ├─ routers/chat.py
-│  ├─ services/
-│  │   ├─ intent.py
-│  │   ├─ safety.py
-│  │   └─ retrieval.py
-│  ├─ utils/rate_limit.py
-│  └─ schemas.py
-├─ data/
-│  ├─ papers/               # place your PDFs here
-│  └─ chroma_db/            # auto-generated Chroma vector DB
-├─ scripts/
-│  ├─ ingest_papers.py      # build embeddings from PDFs
-│  └─ query_test.py         # test queries against DB
-├─ .gitignore
-├─ requirements.txt
-└─ README.md
+📄 PDF ingestion & semantic indexing (no fine-tuning required)
 
-⚙️ Setup
-1. Clone the repo
-git clone https://github.com/YOUR_USERNAME/ai-pain-substance-agent.git
-cd ai-pain-substance-agent
+🔍 Topic-aware retrieval with reranking (Multi-Query + RRF ready)
 
-2. Create virtual environment
+🧠 LLM reasoning grounded in retrieved evidence
+
+📚 Automatic citations (paper + chunk level)
+
+💬 Interactive web chat UI (collapsible sources)
+
+🧱 Memory management (short-term + long-term summaries)
+
+🛡️ Safety & domain relevance gating
+
+🚀 Production-ready backend (FastAPI, Docker-friendly)
+
+
+
+🧩 High-Level Architecture
+
+User Query
+   ↓
+Safety & Domain Check
+   ↓
+Intent Classification + Normalization
+   ↓
+Topic-Aware Retrieval (ChromaDB)
+   ↓
+Reranking (Cross-Encoder)
+   ↓
+LLM Reasoning (RAG Prompt)
+   ↓
+Answer + Citations
+   ↓
+Memory Update (Short + Long Term)
+
+
+📁 Project Structure
+
+.
+├── app/
+│   ├── main.py                  # FastAPI entrypoint
+│   ├── routers/
+│   │   ├── chat.py              # /chat API
+│   │   ├── status.py            # system status
+│   │   └── files.py             # PDF upload
+│   ├── services/
+│   │   ├── retrieval.py         # Chroma retrieval + rerank
+│   │   ├── llm_reasoning.py     # RAG answer generation
+│   │   ├── intent.py            # intent classification
+│   │   ├── safety.py            # safety filtering
+│   │   └── topics.py            # domain & topic logic
+│   ├── memory/
+│   │   ├── short_term.py        # session context
+│   │   └── long_term.py         # summarized history
+│   ├── schemas.py               # Pydantic models
+│   └── utils/
+│       └── rate_limit.py
+│
+├── scripts/
+│   ├── ingest_papers.py         # PDF ingestion pipeline
+│   └── query_test.py            # CLI retrieval testing
+│
+├── data/
+│   ├── papers/                  # uploaded PDFs
+│   └── chroma_db/               # vector store
+│
+├── templates/
+│   ├── base.html
+│   └── chat.html                # web UI
+│
+├── static/
+│   └── styles.css
+│
+├── requirements.txt
+└── README.md
+
+🔄 End-to-End Workflow
+1️⃣ Document Ingestion
+
+PDFs are uploaded or placed in data/papers/
+
+Text is extracted, cleaned, chunked
+
+Chunks are embedded and stored in ChromaDB
+
+python scripts/ingest_papers.py
+
+2️⃣ Query Processing
+
+User submits a question via UI or API
+
+Query is normalized and checked for domain relevance
+
+Topic terms guide retrieval
+
+3️⃣ Retrieval & Reranking
+
+Semantic search over embedded chunks
+
+Optional cross-encoder reranking
+
+Low-confidence retrieval is rejected gracefully
+
+4️⃣ LLM Reasoning (RAG)
+
+Retrieved evidence is injected into a structured prompt
+
+LLM generates an answer only using retrieved context
+
+Citations are attached per chunk
+
+5️⃣ Memory Updates
+
+Short-term: conversation window
+
+Long-term: summarized interactions for continuity
+
+6️⃣ Response Delivery
+
+Answer shown first
+
+Sources collapsed & expandable
+
+Clean, citation-backed output
+
+🖥️ Running the App
+Create Virtual Environment
 python3 -m venv .venv
 source .venv/bin/activate
 
-3. Install dependencies
-pip install --upgrade pip
+Install Dependencies
 pip install -r requirements.txt
 
-
-(If you don’t have requirements.txt, install manually:)
-
-pip install fastapi uvicorn chromadb langchain-huggingface langchain-community sentence-transformers PyPDF2
-
-📥 Step 3.1 – Ingest PDFs
-
-Place your research papers in:
-
-data/papers/
+Start Server
+uvicorn app.main:app --reload
 
 
-Run the ingestion script:
+API Docs → http://127.0.0.1:8000/docs
+
+Chat UI → http://127.0.0.1:8000/chat-ui
+
+📦 Core Dependencies
+Backend
+
+FastAPI
+
+Uvicorn
+
+Pydantic v2
+
+Retrieval & Embeddings
+
+ChromaDB
+
+sentence-transformers
+
+CrossEncoder (ms-marco-MiniLM)
+
+LLMs (pluggable)
+
+OpenAI (GPT-4 / GPT-4o)
+
+HuggingFace Inference API
+
+Local models (Ollama / vLLM supported)
+
+Frontend
+
+HTML / CSS
+
+Vanilla JavaScript
+
+Jinja2 templates
+
+🧪 Testing
+API Test
+curl -X POST http://127.0.0.1:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"thread_id":"test1","message":"Summarize pain–opioid misuse mechanisms"}'
+
+Retrieval Sanity Check
+python scripts/query_test.py
+
+🛠️ Adding New Papers
+
+Upload PDFs or place them in data/papers/
+
+Re-run ingestion:
 
 python scripts/ingest_papers.py
 
 
-You should see:
+⚠️ No retraining required — only re-embedding.
 
-✅ Ingested XX chunks from YY PDFs into Chroma at data/chroma_db
+🧠 Why RAG (No Fine-Tuning)?
 
-🔎 Step 3.2 – Test Retrieval
+Faster iteration
 
-Run the query test script:
+Lower cost
 
-python scripts/query_test.py
+Full transparency
 
-
-You’ll be prompted for a query:
-
-Enter your search query: opioid misuse behavioral impacts
-
-
-Example output:
-
-🔎 Top matches:
-
-Result 1:
-Source: paper1.pdf | Chunk: 12
-Content: Opioid misuse is associated with...
-------------------------------------------------------------
-Result 2:
-Source: paper2.pdf | Chunk: 4
-Content: Behavioral consequences include...
-------------------------------------------------------------
-
-🌐 Step 2 + 3 Integration (API)
-
-You can also run the FastAPI app to use /chat:
-
-uvicorn app.main:app --reload
-
-
-Open http://127.0.0.1:8000/docs
- → Try the POST /chat endpoint with:
-
-{
-  "thread_id": "t1",
-  "message": "summarize behavioral impacts of opioid misuse"
-}
-
-
-Response includes retrieval with the top matches.
-
-🚀 Roadmap
-
-✅ Step 1: User Input (FastAPI endpoint)
-
-✅ Step 2: Memory Layer (short-term session memory)
-
-✅ Step 3: Ingestion + Retrieval (PDFs → ChromaDB)
-
-🔜 Step 4: LLM Processing (augment queries with retrieved passages)
-
-🔜 Step 5: Interactive Chatbot Interface
-
-🛑 .gitignore
-
-We keep large/generated files out of Git:
-
-.venv/
-
-data/chroma_db/
-
-__pycache__/
+Always grounded in source documents
